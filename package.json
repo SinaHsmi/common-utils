@@ -1,0 +1,17 @@
+{
+  "name": "common-utils",
+  "version": "1.0.0",
+  "description": "A set of reusable tools, including cryptography helpers, notification utilities, error handling helpers, and other useful utilities",
+  "main": "index.js",
+  "scripts": {
+    "test": "npx jest --passWithNoTests"
+  },
+  "repository": "git@github.com:SinaHsmi/common-utils.git",
+  "license": "MIT",
+  "devDependencies": {
+    "jest": "^30.0.5",
+    "ts-jest": "^29.4.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.2"
+  }
+}
