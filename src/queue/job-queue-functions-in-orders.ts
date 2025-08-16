@@ -4,7 +4,7 @@ export class JobQueueFunctionInOrder {
   private isProcessing = false
 
   async addJob<InputFunction extends JobFunction>(
-    job: InputFunction,
+    job: InputFunction
   ): Promise<ReturnType<InputFunction>> {
     return new Promise<ReturnType<InputFunction>>((resolve, reject) => {
       const wrappedJob = async () => {
@@ -29,7 +29,6 @@ export class JobQueueFunctionInOrder {
     if (this.isProcessing) return
     const job = this.queue.shift()
     if (!job) return
-
     this.isProcessing = true
     try {
       await job()

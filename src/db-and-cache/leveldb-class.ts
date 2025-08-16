@@ -15,8 +15,11 @@ export class LevelDBQuery<DataModel = any> {
     this.keyMaxLengthOrder = keyMaxLengthOrder
   }
 
-  formatNumberKey(key: number) {
-    return key.toString().padStart(this.keyMaxLengthOrder, '0')
+  formatKey(key: KeyType) {
+    if (typeof key === 'number') {
+      return key.toString().padStart(this.keyMaxLengthOrder, '0')
+    }
+    return key
   }
 
   async getAllKeyAndValue(limit = -1, reverse = false) {
@@ -57,14 +60,12 @@ export class LevelDBQuery<DataModel = any> {
   }
 
   async getOrThrow(key: KeyType) {
-    let newKey: string = typeof key === 'number' ? this.formatNumberKey(key) : key
-    return this.levelDb.get(newKey)
+    return this.levelDb.get(this.formatKey(key))
   }
 
   async get(key: KeyType) {
     try {
-      let newKey: string = typeof key === 'number' ? this.formatNumberKey(key) : key
-      return await this.levelDb.get(newKey)
+      return await this.levelDb.get(this.formatKey(key))
     } catch (err: any) {
       if (err.notFound === true) {
         return undefined
@@ -75,7 +76,7 @@ export class LevelDBQuery<DataModel = any> {
 
   //
   async create(key: KeyType, value: DataModel) {
-    let newKey: string = typeof key === 'number' ? this.formatNumberKey(key) : key
+    let newKey = this.formatKey(key)
     try {
       await this.levelDb.get(newKey)
       throw new Error('key already exist')
@@ -89,18 +90,17 @@ export class LevelDBQuery<DataModel = any> {
   }
 
   async put(key: KeyType, value: DataModel) {
-    let newKey: string = typeof key === 'number' ? this.formatNumberKey(key) : key
-    await this.levelDb.put(newKey, value)
+    await this.levelDb.put(this.formatKey(key), value)
   }
 
   async update(key: KeyType, value: DataModel) {
-    let newKey: string = typeof key === 'number' ? this.formatNumberKey(key) : key
+    let newKey = this.formatKey(key)
     await this.levelDb.get(newKey)
     await this.levelDb.put(newKey, value)
   }
 
   async delete(key: KeyType) {
-    let newKey: string = typeof key === 'number' ? this.formatNumberKey(key) : key
+    let newKey = this.formatKey(key)
     await this.levelDb.del(newKey)
   }
 }
