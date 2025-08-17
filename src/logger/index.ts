@@ -1,8 +1,15 @@
-import { getLogger as getWinstonLogger, LoggerLevel, LoggerType } from './logger.winston'
-import { LogstashLogger } from './logstash.logger'
+import {
+  getLogger as getWinstonLogger,
+  WinstonLoggerLevel,
+  WinstonLoggerType,
+} from './logger.winston'
+import { LogstashLogger, LogstashLoggerOptions } from './logstash.logger'
 
 type LogType = 'debug' | 'data' | 'log' | 'alert'
 export type LogPriority = 'low' | 'normal' | 'high' | 'critical'
+
+export type LoggerType = WinstonLoggerType | 'consoleLogstash'
+export type LoggerLevel = WinstonLoggerLevel
 
 export const LOG_PRIORITY_MAP: Record<LogPriority, number> = {
   low: 0,
@@ -48,41 +55,58 @@ export class Logger {
   metadata: { source: string; category: string }
   logger: ReturnType<typeof getWinstonLogger>
   sendNotification?: (_input: Log) => Promise<void>
-  logOptions: { logType?: LoggerType; logLevel?: LoggerLevel }
   logstashLogger?: LogstashLogger
+  options: {
+    defaultCategory?: string
+    tags?: string[]
+    loggerType?: LoggerType
+    loggerLevel?: LoggerLevel
+    section?: string
+    logstash?: LogstashLoggerOptions
+  }
   constructor(
     source: string,
-    defaultCategory: string = 'general',
-    tags: string[] = [],
-    sendNotification?: (_input: Log) => Promise<void>,
-    logType?: LoggerType,
-    logLevel?: LoggerLevel,
-    section?: string
+    options?: {
+      defaultCategory?: string
+      tags?: string[]
+      loggerType?: LoggerType
+      loggerLevel?: LoggerLevel
+      section?: string
+      logstash?: LogstashLoggerOptions
+    },
+    sendNotification?: (_input: Log) => Promise<void>
   ) {
-    this.logOptions = {
-      logType,
-      logLevel,
-    }
+    this.options = options || {}
+    const {
+      defaultCategory = 'general',
+      tags = [],
+      loggerType,
+      loggerLevel,
+      section,
+    } = this.options
     this.metadata = {
       source: source.toUpperCase().replace(/ /g, '_'),
       category: defaultCategory,
     }
-    this.tags = tags
-    if (logType === 'consoleLogstash') {
-      this.logstashLogger = new LogstashLogger({
-        host: 'dashboard2.teleportdao.xyz',
-        port: 5000,
-        tls: {
-          ca: './certs/ca.crt',
-          cert: './certs/server.crt',
-          key: './certs/server.key',
-          rejectUnauthorized: false,
-        },
-      })
-      this.logOptions.logType = 'console'
-      this.logOptions.logLevel = this.logOptions.logLevel || 'verbose'
+    let loggerOptions = {
+      loggerLevel,
+      loggerType,
     }
-    this.logger = getWinstonLogger(section, this.logOptions.logType, this.logOptions.logLevel)
+    this.tags = tags
+    if (loggerType === 'consoleLogstash') {
+      if (!options?.logstash) {
+        throw new Error('logstash config is required')
+      }
+      this.logstashLogger = new LogstashLogger(options.logstash)
+      // change log type to console and log level to verbose like consoleFile
+      loggerOptions.loggerType = 'console'
+      loggerOptions.loggerLevel = loggerOptions.loggerLevel || 'verbose'
+    }
+    this.logger = getWinstonLogger(
+      section,
+      loggerOptions.loggerType as WinstonLoggerType,
+      loggerOptions.loggerLevel
+    )
     this.sendNotification = sendNotification
   }
 
@@ -102,12 +126,11 @@ export class Logger {
   getLogger(section?: string) {
     return new Logger(
       this.metadata.source,
-      this.metadata.category,
-      this.tags,
-      this.sendNotification,
-      this.logOptions.logType,
-      this.logOptions.logLevel,
-      section
+      {
+        ...this.options,
+        section,
+      },
+      this.sendNotification
     )
   }
 
@@ -266,5 +289,3 @@ export class Logger {
     }
   }
 }
-
-export type { LoggerLevel, LoggerType }

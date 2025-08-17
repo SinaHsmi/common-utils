@@ -1,7 +1,9 @@
 import * as inquirer from 'inquirer'
 import { Logger } from '../logger'
 
-const logger = new Logger('INTERNAL', undefined, [], undefined, 'console', 'info')
+const logger = new Logger('INTERNAL', {
+  loggerType: 'console',
+})
 
 const prompt = inquirer.createPromptModule()
 

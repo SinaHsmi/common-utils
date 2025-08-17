@@ -15,12 +15,13 @@ export class InMemoryCache {
   }
 
   // eslint-disable-next-line consistent-return
-  get(key: string): string | undefined {
+  get(key: string): string | null {
     let data = this.cache[key]
     if (data) {
       if (Date.now() < data.expiry) return data.data
       this.delete(key)
     }
+    return null
   }
 
   //   expiry in second. default 30 days

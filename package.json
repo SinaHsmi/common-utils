@@ -4,11 +4,14 @@
   "description": "A set of reusable tools, including cryptography helpers, notification utilities, error handling helpers, and other useful utilities",
   "main": "index.js",
   "scripts": {
-    "test": "npx jest --passWithNoTests"
+    "test": "npx jest --passWithNoTests",
+    "build:watch": "npx tsc --watch",
+    "build": "npx tsc"
   },
   "repository": "git@github.com:SinaHsmi/common-utils.git",
   "license": "MIT",
   "devDependencies": {
+    "@changesets/cli": "^2.29.5",
     "@types/jest": "^30.0.0",
     "@types/nodemailer": "^6.4.17",
     "@types/ws": "^8.18.1",

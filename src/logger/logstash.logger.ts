@@ -1,15 +1,15 @@
-import tls from "tls"
-import net from "net"
-import fs from "fs"
+import tls from 'tls'
+import net from 'net'
 
 interface TLSOptions {
-  ca: string
-  cert: string
-  key: string
+  ca: Buffer
+  cert: Buffer
+  key: Buffer
+
   rejectUnauthorized?: boolean
 }
 
-interface LogstashLoggerOptions {
+export interface LogstashLoggerOptions {
   host: string
   port: number
   tls?: TLSOptions
@@ -44,9 +44,9 @@ export class LogstashLogger {
 
     if (this.useTLS) {
       this.tlsOptions = {
-        ca: options.tls?.ca ? [fs.readFileSync(options.tls.ca)] : undefined,
-        cert: options.tls?.cert ? fs.readFileSync(options.tls.cert) : undefined,
-        key: options.tls?.key ? fs.readFileSync(options.tls.key) : undefined,
+        ca: options.tls?.ca,
+        cert: options.tls?.cert,
+        key: options.tls?.key,
         rejectUnauthorized: options.tls?.rejectUnauthorized ?? true,
         host: this.host,
         servername: this.host,
@@ -62,7 +62,7 @@ export class LogstashLogger {
   }
 
   public log(data: any) {
-    const json = typeof data === "string" ? data : JSON.stringify(data)
+    const json = typeof data === 'string' ? data : JSON.stringify(data)
     this.buffer.push(json)
     if (this.buffer.length >= this.maxBufferSize) {
       this.flush()
@@ -73,48 +73,25 @@ export class LogstashLogger {
     if (this.connected || this.reconnecting) return
 
     if (this.useTLS) {
-      const tlsClient = tls.connect(
-        this.port,
-        this.host,
-        { ...this.tlsOptions, timeout: 1000, sessionTimeout: 1000 },
-        () => {
-          if (tlsClient.authorized || !this.tlsOptions?.rejectUnauthorized) {
-            this.connected = true
-            this.client = tlsClient
-            console.log(`[LogstashLogger] TLS connected to ${this.host}:${this.port}`)
-          } else {
-            console.error(`[LogstashLogger] TLS unauthorized: ${tlsClient.authorizationError}`)
-            tlsClient.destroy()
-            this.tryReconnect()
-          }
-          this.reconnecting = false
-        },
-      )
-
-      tlsClient.on("error", (err) => {
-        console.error("[LogstashLogger] TLS error:", err.message)
+      const tlsClient = tls.connect(this.port, this.host, this.tlsOptions, () => {
+        if (tlsClient.authorized || !this.tlsOptions?.rejectUnauthorized) {
+          this.connected = true
+          this.client = tlsClient
+        } else {
+          tlsClient.destroy()
+          this.tryReconnect()
+        }
+        this.reconnecting = false
+      })
+      tlsClient.on('error', (err) => {
         this.connected = false
         this.tryReconnect()
       })
 
-      tlsClient.on("close", () => {
-        console.warn("[LogstashLogger] TLS connection closed")
+      tlsClient.on('close', () => {
         this.connected = false
         this.tryReconnect()
       })
-
-      tlsClient.on("end", () => {
-        console.warn("[LogstashLogger] TLS connection ended")
-        this.connected = false
-        this.tryReconnect()
-      })
-
-      // Corrected from 'crain' to 'drain', and removed reconnect on drain (not an error)
-      tlsClient.on("drain", () => {
-        console.log("[LogstashLogger] TLS connection drained")
-        // No reconnect on drain event
-      })
-
     } else {
       const tcpClient = new net.Socket()
 
@@ -122,17 +99,14 @@ export class LogstashLogger {
         this.connected = true
         this.reconnecting = false
         this.client = tcpClient
-        console.log(`[LogstashLogger] TCP connected to ${this.host}:${this.port}`)
       })
 
-      tcpClient.on("error", (err) => {
-        console.error("[LogstashLogger] TCP error:", err.message)
+      tcpClient.on('error', (err) => {
         this.connected = false
         this.tryReconnect()
       })
 
-      tcpClient.on("close", () => {
-        console.warn("[LogstashLogger] TCP connection closed")
+      tcpClient.on('close', () => {
         this.connected = false
         this.tryReconnect()
       })
@@ -144,7 +118,6 @@ export class LogstashLogger {
     this.reconnecting = true
 
     setTimeout(() => {
-      console.log(`[LogstashLogger] Reconnecting...`)
       this.reconnecting = false
       this.connect()
     }, this.reconnectIntervalMs)
@@ -153,17 +126,14 @@ export class LogstashLogger {
   private flush() {
     if (this.isFlushing || !this.connected || this.buffer.length === 0 || !this.client) return
     this.isFlushing = true
-    const data = `${this.buffer.join("\n")}\n`
+    const data = `${this.buffer.join('\n')}\n`
     this.buffer = []
-    console.log(`flush\n${data}`)
-
     this.client.write(data, (err) => {
       if (err) {
-        console.error("[LogstashLogger] Write error:", err)
         this.connected = false
         this.tryReconnect()
         // Split the data back into separate lines to avoid data duplication issues on re-flush
-        this.buffer.unshift(...data.trim().split("\n"))
+        this.buffer.unshift(...data.trim().split('\n'))
       }
       this.isFlushing = false
     })
